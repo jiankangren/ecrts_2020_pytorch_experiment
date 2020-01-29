@@ -60,12 +60,6 @@ def get_line_styles():
         [4, 1, 1, 1],
         [1, 1, 1, 1],
     ]
-    style_options = [
-        "-",
-        "--",
-        "-.",
-        ":"
-    ]
     marker_options = [
         None,
         "o",
@@ -115,7 +109,7 @@ def get_plot(datasets, data_keys_and_titles):
     legend.set_draggable(True)
     return figure
 
-def print_stats(filename, title):
+def print_stats_latex(filename, title):
     """ Prints some statistics about the data to stdout. """
     data = []
     with open(filename) as f:
@@ -129,6 +123,22 @@ def print_stats(filename, title):
     mean = numpy.average(data)
     std_dev = numpy.std(data)
     fmt = "%s & %.02f & %.02f & %.02f & %.02f & %.02f " + r'\\'
+    print(fmt % (title, min_time, max_time, median, mean, std_dev))
+
+def print_stats_human_readable(filename, title):
+    """ Prints some statistics about the data to stdout. """
+    data = []
+    with open(filename) as f:
+        data = json.loads(f.read())
+    data = data[1:]
+    for i in range(len(data)):
+        data[i] *= 1000.0
+    min_time = min(data)
+    max_time = max(data)
+    median = numpy.median(data)
+    mean = numpy.average(data)
+    std_dev = numpy.std(data)
+    fmt = "%s \t %.02f \t %.02f \t %.02f \t %.02f \t %.02f"
     print(fmt % (title, min_time, max_time, median, mean, std_dev))
 
 if __name__ == "__main__":
@@ -176,7 +186,11 @@ if __name__ == "__main__":
     print(" & Min & Max & Median & Mean & Std. Deviation" + r'\\')
     print(r'\hline')
     for v in plot_contents[2]:
-        print_stats(datasets[v[1]], v[0])
+        print_stats_latex(datasets[v[1]], v[0])
+    print(" Performance with \"partitioning\" ".center(80, "="))
+    print("\t\t\t Min \t Max \t Med. \t Mean \t Std.Dev.")
+    for v in plot_contents[1]:
+        print_stats_human_readable(datasets[v[1]], v[0])
     for p in plot_contents:
         figures.append(get_plot(datasets, p))
     plot.show()

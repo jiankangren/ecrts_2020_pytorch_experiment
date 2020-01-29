@@ -25,6 +25,43 @@ import torch.optim as optim
 from torchvision import datasets, transforms
 from torch.optim.lr_scheduler import StepLR
 
+def get_vector_of_tensor_size(n, entry_size):
+    """ Returns the torch.Size for a tensor containing n entries, and each
+    entry has a size given by entry_size. (There may be a better way to do
+    this, but I don't know pytorch well enough yet.) """
+    tmp = [n]
+    for s in entry_size:
+        tmp.append(s)
+    return torch.Size(tmp)
+
+class PreloadDataset(torch.utils.data.Dataset):
+    """ A dataset class that loads another dataset and buffers it all in
+    memory. """
+
+    def __init__(self, data, device):
+        """ Requires an existing dataset and a device on which to create the
+        buffer. """
+        self.data = None
+        self.data_count = len(data)
+        self.results = torch.LongTensor(len(data)).to(device)
+        i = 0
+        skipped_size_mismatch = 0
+        for input_data, result in data:
+            # Once we know the shape of the input we can allocate the data
+            # buffer.
+            if self.data is None:
+                data_shape = get_vector_of_tensor_size(len(data),
+                    input_data.size())
+                self.data = torch.zeros(data_shape, device=device)
+            self.data[i] = input_data.to(device)
+            self.results[i] = result
+            i += 1
+
+    def __getitem__(self, index):
+        return (self.data[index], self.results[index])
+
+    def __len__(self):
+        return self.data_count
 
 class Net(nn.Module):
     def __init__(self):
@@ -53,7 +90,6 @@ class Net(nn.Module):
 def train(args, model, device, train_loader, optimizer, epoch, times):
     model.train()
     for batch_idx, (data, target) in enumerate(train_loader):
-        data, target = data.to(device), target.to(device)
         iteration_start = time.time()
         optimizer.zero_grad()
         output = model(data)
@@ -77,7 +113,6 @@ def test(args, model, device, test_loader):
     correct = 0
     with torch.no_grad():
         for data, target in test_loader:
-            data, target = data.to(device), target.to(device)
             output = model(data)
             test_loss += F.nll_loss(output, target, reduction='sum').item()  # sum up batch loss
             pred = output.argmax(dim=1, keepdim=True)  # get the index of the max log-probability
@@ -88,24 +123,6 @@ def test(args, model, device, test_loader):
     print('\nTest set: Average loss: {:.4f}, Accuracy: {}/{} ({:.0f}%)\n'.format(
         test_loss, correct, len(test_loader.dataset),
         100. * correct / len(test_loader.dataset)))
-
-def warmup_loader(loader, device):
-    """ This function cycles through everything in a data loader, as I've
-    noticed predictable noise at the end of the first epoch, related to data
-    loading. Going through the data once eliminates this noise. """
-    # Force the data to be moved to the GPU and actually used.
-    accumulator_d = None
-    accumulator_t = None
-    for batch_index, (data, target) in enumerate(loader):
-        if accumulator_d is None:
-            accumulator_d = torch.zeros(data.shape, device=device)
-            accumulator_t = torch.zeros(target.shape, device=device)
-        data, target = data.to(device), target.to(device)
-        if accumulator_d.shape == data.shape:
-            accumulator_d += data
-        if accumulator_t.shape == target.shape:
-            accumulator_t += target
-    return
 
 def main():
     # Training settings
@@ -148,32 +165,31 @@ def main():
     if not args.no_cuda:
         stream = torch.cuda.Stream(device=device)
 
-    kwargs = {'num_workers': 1, 'pin_memory': True} if not args.no_cuda else {}
-    train_loader = torch.utils.data.DataLoader(
-        datasets.MNIST('./temp_data', train=True, download=True,
-                       transform=transforms.Compose([
-                           transforms.ToTensor(),
-                           transforms.Normalize((0.1307,), (0.3081,))
-                       ])),
-        batch_size=args.batch_size, shuffle=True, **kwargs)
+    # Buffer all data into device memory to avoid noise in measurements later.
+    print("Loading datasets onto the device...")
+    train_dataset = PreloadDataset(datasets.MNIST('./temp_data', train=True,
+        download=True, transform=transforms.Compose([transforms.ToTensor(),
+            transforms.Normalize((0.1307,), (0.3081,))])), device)
+    test_dataset = PreloadDataset(datasets.MNIST('./temp_data', train=False,
+        transform=transforms.Compose([transforms.ToTensor(),
+            transforms.Normalize((0.1307,), (0.3081,))])), device)
+    print("Done loading datasets onto the device.")
 
-    for i in range(2):
-        warmup_loader(train_loader, device)
-
-    test_loader = torch.utils.data.DataLoader(
-        datasets.MNIST('./temp_data', train=False, transform=transforms.Compose([
-                           transforms.ToTensor(),
-                           transforms.Normalize((0.1307,), (0.3081,))
-                       ])),
-        batch_size=args.test_batch_size, shuffle=True, **kwargs)
-
+    train_loader = torch.utils.data.DataLoader(train_dataset,
+        batch_size=args.batch_size, shuffle=True)
+    test_loader = torch.utils.data.DataLoader(test_dataset,
+        batch_size=args.test_batch_size, shuffle=True)
     model = Net().to(device)
+    if not args.no_cuda:
+        tmp = float(torch.cuda.max_memory_allocated(device)) / (1024.0 *
+            1024.0)
+        print("Device memory usage: %.02f MB" % (tmp,))
     optimizer = optim.Adadelta(model.parameters(), lr=args.lr)
 
     times = []
     scheduler = StepLR(optimizer, step_size=1, gamma=args.gamma)
     for epoch in range(1, args.epochs + 1):
-        # Use the specified stream if we're using the GPU.
+        # Use a user-specified stream if we're using the GPU.
         if not args.no_cuda:
             with torch.cuda.stream(stream):
                 train(args, model, device, train_loader, optimizer, epoch, times)
