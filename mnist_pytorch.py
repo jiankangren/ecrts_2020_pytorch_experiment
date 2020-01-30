@@ -41,27 +41,63 @@ class PreloadDataset(torch.utils.data.Dataset):
     def __init__(self, data, device):
         """ Requires an existing dataset and a device on which to create the
         buffer. """
+        # I've made the following stuff use self.data_count rather than
+        # len(data) to make it easier to exclude some of the input data.
         self.data = None
+        #self.data_count = int(len(data) / 3) ############################################################# DEBUG
         self.data_count = len(data)
-        self.results = torch.LongTensor(len(data)).to(device)
+        self.results = torch.LongTensor(self.data_count).to(device)
         i = 0
         skipped_size_mismatch = 0
+        print("")
         for input_data, result in data:
+            if i >= self.data_count:
+                break
+            msg = "Loading datasets onto the device: %.02f%% (%d/%d)\r" % (
+                (float(i) / float(self.data_count)) * 100.0, i,
+                self.data_count)
+            print(msg, end="")
             # Once we know the shape of the input we can allocate the data
             # buffer.
             if self.data is None:
-                data_shape = get_vector_of_tensor_size(len(data),
+                data_shape = get_vector_of_tensor_size(self.data_count,
                     input_data.size())
                 self.data = torch.zeros(data_shape, device=device)
             self.data[i] = input_data.to(device)
             self.results[i] = result
             i += 1
+        print("")
 
     def __getitem__(self, index):
         return (self.data[index], self.results[index])
 
     def __len__(self):
         return self.data_count
+
+class SimpleLoader(object):
+    """ This class replaces PyTorch's loader, and simply wraps our
+    PreloadDataset to return subsequent slices. """
+
+    def __init__(self, dataset, batch_size):
+        """ Expects a PreloadDataset. """
+        self.dataset = dataset
+        self.current_index = 0
+        self.batch_size = batch_size
+
+    def __next__(self):
+        if (self.current_index + self.batch_size) >= len(self.dataset):
+            raise StopIteration
+        i = self.current_index
+        data_slice = self.dataset.data[i : (i + self.batch_size)]
+        result_slice = self.dataset.results[i : (i + self.batch_size)]
+        self.current_index += self.batch_size
+        return (data_slice, result_slice)
+
+    def __iter__(self):
+        return self
+
+    def __len__(self):
+        return int(int(len(self.dataset)) / int(self.batch_size))
 
 class Net(nn.Module):
     def __init__(self):
@@ -87,9 +123,10 @@ class Net(nn.Module):
         output = F.log_softmax(x, dim=1)
         return output
 
-def train(args, model, device, train_loader, optimizer, epoch, times):
+def train(args, model, device, loader, optimizer, epoch, times):
     model.train()
-    for batch_idx, (data, target) in enumerate(train_loader):
+    batch_index = 0
+    for (data, target) in loader:
         iteration_start = time.time()
         optimizer.zero_grad()
         output = model(data)
@@ -102,27 +139,12 @@ def train(args, model, device, train_loader, optimizer, epoch, times):
         # size.
         if (epoch > 1) and (len(times) < args.max_time_samples):
             times.append(iteration_duration)
-        if batch_idx % args.log_interval == 0:
-            print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
-                epoch, batch_idx * len(data), len(train_loader.dataset),
-                100. * batch_idx / len(train_loader), loss.item()))
-
-def test(args, model, device, test_loader):
-    model.eval()
-    test_loss = 0
-    correct = 0
-    with torch.no_grad():
-        for data, target in test_loader:
-            output = model(data)
-            test_loss += F.nll_loss(output, target, reduction='sum').item()  # sum up batch loss
-            pred = output.argmax(dim=1, keepdim=True)  # get the index of the max log-probability
-            correct += pred.eq(target.view_as(pred)).sum().item()
-
-    test_loss /= len(test_loader.dataset)
-
-    print('\nTest set: Average loss: {:.4f}, Accuracy: {}/{} ({:.0f}%)\n'.format(
-        test_loss, correct, len(test_loader.dataset),
-        100. * correct / len(test_loader.dataset)))
+        if batch_index % args.log_interval == 0:
+            #print("Epoch %d, batch %d/%d." % (epoch, batch_index, len(loader)))
+            #loss.item() requires a dev->host copy that BLOCKS for some reason!!
+            print("Epoch %d, batch %d/%d. Loss: %f" % (epoch,
+                batch_index, len(loader), -1.0))
+        batch_index += 1
 
 def main():
     # Training settings
@@ -156,46 +178,28 @@ def main():
     if not args.no_cuda and not torch.cuda.is_available():
         print("Can't use CUDA without CUDA being available. Pass --no-cuda.")
         os.exit(1)
-
     torch.manual_seed(args.seed)
-
     device = torch.device("cuda:1" if not args.no_cuda else "cpu")
-
-    stream = None
-    if not args.no_cuda:
-        stream = torch.cuda.Stream(device=device)
 
     # Buffer all data into device memory to avoid noise in measurements later.
     print("Loading datasets onto the device...")
     train_dataset = PreloadDataset(datasets.MNIST('./temp_data', train=True,
         download=True, transform=transforms.Compose([transforms.ToTensor(),
             transforms.Normalize((0.1307,), (0.3081,))])), device)
-    test_dataset = PreloadDataset(datasets.MNIST('./temp_data', train=False,
-        transform=transforms.Compose([transforms.ToTensor(),
-            transforms.Normalize((0.1307,), (0.3081,))])), device)
-    print("Done loading datasets onto the device.")
-
-    train_loader = torch.utils.data.DataLoader(train_dataset,
-        batch_size=args.batch_size, shuffle=True)
-    test_loader = torch.utils.data.DataLoader(test_dataset,
-        batch_size=args.test_batch_size, shuffle=True)
     model = Net().to(device)
+    optimizer = optim.Adadelta(model.parameters(), lr=args.lr)
+    scheduler = StepLR(optimizer, step_size=1, gamma=args.gamma)
     if not args.no_cuda:
         tmp = float(torch.cuda.max_memory_allocated(device)) / (1024.0 *
             1024.0)
         print("Device memory usage: %.02f MB" % (tmp,))
-    optimizer = optim.Adadelta(model.parameters(), lr=args.lr)
+    print("Done preparing.")
+    input("Press enter to start training...") #######################################
 
     times = []
-    scheduler = StepLR(optimizer, step_size=1, gamma=args.gamma)
     for epoch in range(1, args.epochs + 1):
-        # Use a user-specified stream if we're using the GPU.
-        if not args.no_cuda:
-            with torch.cuda.stream(stream):
-                train(args, model, device, train_loader, optimizer, epoch, times)
-        else:
-            train(args, model, device, train_loader, optimizer, epoch, times)
-        test(args, model, device, test_loader)
+        loader = SimpleLoader(train_dataset, args.batch_size)
+        train(args, model, device, loader, optimizer, epoch, times)
         scheduler.step()
 
     if args.time_output is not None:

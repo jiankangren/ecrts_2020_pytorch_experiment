@@ -1,40 +1,30 @@
 #!/bin/bash
 #
-# This script runs the pytorch tests needed for the paper. It takes care of
-# setting up and destroying the ramdisk used for the training data, using
-# the needed CU masks, and setting the output names.
-sudo true
-if [ $? -ne 0 ];
-then
-	echo "sudo is needed for setting up a ramdisk temp FS."
-	exit 1
-fi
+# This script runs the pytorch tests needed for the paper.
 
 RESULT_DIR="./results"
-
 EPOCHS=30
-
 EPOCHS_WITH_COMPETITOR=6
 
 # Both competitor and pytorch share the full GPU (the competitor is configured
 # to run indefinitely and not write any output).
 #python mnist_pytorch.py --seed 1337 --epochs 1000 >/dev/null &
-../../hip_plugin_framework/bin/runner ./plugin_framework_competitor_config.json >/dev/null
-COMPETITOR_PID=$!
-echo "Giving the competitor time to start..."
-sleep 4
-echo "Competitor started with PID $COMPETITOR_PID"
-python mnist_pytorch.py --seed 1337 --epochs $EPOCHS_WITH_COMPETITOR --time-output $RESULT_DIR/pytorch_times_gpu_full_shared.json
-kill -9 $COMPETITOR_PID
+#../../hip_plugin_framework/bin/runner ./plugin_framework_competitor_config.json >/dev/null
+#COMPETITOR_PID=$!
+#echo "Giving the competitor time to start..."
+#sleep 4
+#echo "Competitor started with PID $COMPETITOR_PID"
+#python mnist_pytorch.py --seed 1337 --epochs $EPOCHS_WITH_COMPETITOR --time-output $RESULT_DIR/pytorch_times_gpu_full_shared.json
+#kill -9 $COMPETITOR_PID
 
 # The competitor and pytorch are isolated on half of the GPU
-../../hip_plugin_framework/bin/runner ./plugin_framework_competitor_config.json >/dev/null
-COMPETITOR_PID=$!
-echo "Giving the competitor time to start..."
-sleep 4
-echo "Competitor started with PID $COMPETITOR_PID"
-HSA_DEFAULT_CU_MASK=ffff python mnist_pytorch.py --seed 1337 --epochs $EPOCHS_WITH_COMPETITOR --time-output $RESULT_DIR/pytorch_times_gpu_partitioned_16_CUs.json
-kill -9 $COMPETITOR_PID
+#../../hip_plugin_framework/bin/runner ./plugin_framework_competitor_config.json >/dev/null
+#COMPETITOR_PID=$!
+#echo "Giving the competitor time to start..."
+#sleep 4
+#echo "Competitor started with PID $COMPETITOR_PID"
+#HSA_DEFAULT_CU_MASK=ffff python mnist_pytorch.py --seed 1337 --epochs $EPOCHS_WITH_COMPETITOR --time-output $RESULT_DIR/pytorch_times_gpu_partitioned_16_CUs.json
+#kill -9 $COMPETITOR_PID
 
 python mnist_pytorch.py --seed 1337 --epochs $EPOCHS --time-output $RESULT_DIR/pytorch_times_gpu.json
 

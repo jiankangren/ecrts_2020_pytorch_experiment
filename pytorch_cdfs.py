@@ -146,6 +146,7 @@ if __name__ == "__main__":
     datasets = {
         "Titan V": "pytorch_times_gpu_titan_v.json",
         "GTX 1060": "pytorch_times_gtx_1060.json",
+        "GTX 970": "pytorch_times_gtx_970.json",
         "RX 570 (32 CUs, isolated)": "pytorch_times_gpu.json",
         "RX 570 (16 CUs, isolated)": "pytorch_times_gpu_16_CUs.json",
         "RX 570 (8 CUs, isolated)": "pytorch_times_gpu_8_CUs.json",
@@ -161,7 +162,7 @@ if __name__ == "__main__":
         datasets[k] = result_dir + datasets[k]
     plot_contents = [
         [
-            ["32 CUs", "RX 570 (32 CUs, isolated)"],
+            ["Full GPU (32 CUs)", "RX 570 (32 CUs, isolated)"],
             ["16 CUs", "RX 570 (16 CUs, isolated)"],
             #["8 CUs", "RX 570 (8 CUs, isolated)"],
             ["4 CUs", "RX 570 (4 CUs, isolated)"],
@@ -177,6 +178,7 @@ if __name__ == "__main__":
         [
             ["Titan V", "Titan V"],
             ["GTX 1060", "GTX 1060"],
+            ["GTX 970", "GTX 970"],
             ["RX 570", "RX 570 (32 CUs, isolated)"],
             ["CPU-only training", "Training on CPU (32-core Xeon Silver 4110)"],
         ],
