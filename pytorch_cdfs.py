@@ -153,10 +153,9 @@ if __name__ == "__main__":
         "RX 570 (4 CUs, isolated)": "pytorch_times_gpu_4_CUs.json",
         "RX 570 (2 CUs, isolated)": "pytorch_times_gpu_2_CUs.json",
         "RX 570 (1 CU, isolated)": "pytorch_times_gpu_1_CU.json",
-        "RX 570 (1 CU, isolated, pre kernel change)": "pytorch_times_gpu_1_CU_old.json",
-        "Training on CPU (32-core Xeon Silver 4110)": "pytorch_times_cpu_sunlight.json",
-        "RX 570 (fully shared with random walk)": "pytorch_times_gpu_full_shared.json",
-        "RX 570 (partitioned to 16 CUs with random walk)": "pytorch_times_gpu_partitioned_16_CUs.json",
+        "Running on CPU": "pytorch_times_cpu.json",
+        "RX 570 (fully shared with competitor)": "pytorch_times_gpu_full_shared.json",
+        "RX 570 (partitioned to 16 CUs apart from competitor)": "pytorch_times_gpu_partitioned_16_CUs.json",
     }
     for k in datasets:
         datasets[k] = result_dir + datasets[k]
@@ -172,15 +171,15 @@ if __name__ == "__main__":
         [
             ["Isolated (full GPU)", "RX 570 (32 CUs, isolated)"],
             ["Isolated (16 CUs)", "RX 570 (16 CUs, isolated)"],
-            ["Shared (no partitioning)", "RX 570 (fully shared with random walk)"],
-            ["Shared (partitioned on 16 CUs)", "RX 570 (partitioned to 16 CUs with random walk)"],
+            ["Shared (no partitioning)", "RX 570 (fully shared with competitor)"],
+            ["Shared (partitioned on 16 CUs)", "RX 570 (partitioned to 16 CUs apart from competitor)"],
         ],
         [
             ["Titan V", "Titan V"],
             ["GTX 1060", "GTX 1060"],
             ["GTX 970", "GTX 970"],
             ["RX 570", "RX 570 (32 CUs, isolated)"],
-            ["CPU-only training", "Training on CPU (32-core Xeon Silver 4110)"],
+            ["Running on CPU", "Running on CPU"],
         ],
     ]
     figures = []
