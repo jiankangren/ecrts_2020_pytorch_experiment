@@ -289,7 +289,7 @@ def main():
             transforms.Normalize((0.1307,), (0.3081,))])), device)
     competitor_dataset = RandomDataset(dataset, device)
     model = Net()
-    model.load_state_dict(torch.load("./mnist_cnn.pt"))
+    model.load_state_dict(torch.load("./mnist_cnn.pt", map_location=device))
     model.to(device)
     model.eval()
 
