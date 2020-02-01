@@ -172,7 +172,7 @@ if __name__ == "__main__":
         [
             ["Isolated (full GPU)", "RX 570 (32 CUs, isolated)"],
             ["Isolated (16 CUs)", "RX 570 (16 CUs, isolated)"],
-            ["Shared (full GPU)", "RX 570 (fully shared with random walk)"],
+            ["Shared (no partitioning)", "RX 570 (fully shared with random walk)"],
             ["Shared (partitioned on 16 CUs)", "RX 570 (partitioned to 16 CUs with random walk)"],
         ],
         [
