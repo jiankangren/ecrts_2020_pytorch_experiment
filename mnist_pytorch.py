@@ -154,13 +154,18 @@ def run_competitor(args, model, device, dataset, barrier):
     stream = torch.cuda.Stream(device)
     cu_mask_string = args.competitor_cu_mask
     if cu_mask_string is not None:
+        if "set_cu_mask" not in dir(stream):
+            print("Setting a stream's CU mask is not supported in this " +
+                "build of PyTorch.")
+            exit(1)
         stream.set_cu_mask(int(cu_mask_string, 16))
     iterations = 0
     # We'll use done_initializing to cause the competitor to warm up once, and
     # then wait for the main thread's to be ready to continue running.
     wait_once = True
     while not competitor_should_quit:
-        # TODO: Maybe make batch size bigger to cause more work?
+        # If necessary, the batch size could probably be increased further to
+        # generate more work.
         loader = SimpleLoader(dataset, 128)
         with torch.no_grad():
             with torch.cuda.stream(stream):
@@ -264,11 +269,17 @@ def main():
         os.exit(1)
     torch.manual_seed(args.seed)
     device = torch.device("cuda:1" if not args.no_cuda else "cpu")
+    if not args.no_cuda:
+        print("Running on device: " + torch.cuda.get_device_name(device))
     stream = None
     if not args.no_cuda:
         stream = torch.cuda.Stream(device)
         cu_mask_string = args.stream_cu_mask
-        if cu_mask_string is not None:
+        if (cu_mask_string is not None):
+            if "set_cu_mask" not in dir(stream):
+                print("Setting a stream's CU mask isn't supported in this " +
+                    "build of PyTorch.")
+                exit(1)
             stream.set_cu_mask(int(cu_mask_string, 16))
 
     # Buffer all data into device memory to avoid noise in measurements later.
