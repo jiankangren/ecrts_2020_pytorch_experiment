@@ -64,7 +64,7 @@ instructions):
       6. Save the changes.
 
  6. Build and install PyTorch (this may take several hours--if it fails make
-    sure that you have all of the necessary ROCm packages installed:
+    sure that you have all of the necessary ROCm packages installed):
     ```
     export CMAKE_PREFIX_PATH=${CONDA_PREFIX:-"$(dirname $(which conda))/../"}
     python setup.py install
