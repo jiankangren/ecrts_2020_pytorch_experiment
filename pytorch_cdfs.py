@@ -169,10 +169,10 @@ if __name__ == "__main__":
             ["1 CU", "RX 570 (1 CU, isolated)"],
         ],
         [
-            ["Isolated (full GPU)", "RX 570 (32 CUs, isolated)"],
-            ["Isolated (16 CUs)", "RX 570 (16 CUs, isolated)"],
-            ["Shared (no partitioning)", "RX 570 (fully shared with competitor)"],
-            ["Shared (partitioned on 16 CUs)", "RX 570 (partitioned to 16 CUs apart from competitor)"],
+            ["No Competitor, Full GPU", "RX 570 (32 CUs, isolated)"],
+            ["No Competitor, Limited to 16 CUs", "RX 570 (16 CUs, isolated)"],
+            ["With Competitor, No Partitioning", "RX 570 (fully shared with competitor)"],
+            ["With Competitor, Partitioned to 16 CUs", "RX 570 (partitioned to 16 CUs apart from competitor)"],
         ],
         [
             ["Titan V", "Titan V"],
