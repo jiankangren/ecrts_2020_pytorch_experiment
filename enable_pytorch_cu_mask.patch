@@ -1,0 +1,78 @@
+diff --git a/aten/src/ATen/hip/impl/HIPStreamMasqueradingAsCUDA.h b/aten/src/ATen/hip/impl/HIPStreamMasqueradingAsCUDA.h
+index b80fc02b..4e755576 100644
+--- a/aten/src/ATen/hip/impl/HIPStreamMasqueradingAsCUDA.h
++++ b/aten/src/ATen/hip/impl/HIPStreamMasqueradingAsCUDA.h
+@@ -60,6 +60,7 @@ public:
+   void synchronize() const   { stream_.synchronize(); }
+   int priority() const       { return stream_.priority(); }
+   hipStream_t stream() const { return stream_.stream(); }
++  void set_cu_mask(uint64_t mask) { stream_.set_cu_mask(mask); }
+ 
+   Stream unwrap() const {
+     // Unsafely coerce HIP stream into "CUDA" stream
+diff --git a/c10/hip/HIPStream.h b/c10/hip/HIPStream.h
+index a4edf0c9..1bd1728f 100644
+--- a/c10/hip/HIPStream.h
++++ b/c10/hip/HIPStream.h
+@@ -119,6 +119,11 @@ public:
+     C10_HIP_CHECK(hipStreamSynchronize(stream()));
+   }
+ 
++  void set_cu_mask(uint64_t mask) {
++    DeviceGuard guard{stream_.device()};
++    C10_HIP_CHECK(hipStreamSetComputeUnitMask(stream(), mask));
++  }
++
+   int priority() const {
+     #ifndef __HIP_PLATFORM_HCC__
+       DeviceGuard guard{stream_.device()};
+diff --git a/torch/csrc/cuda/Stream.cpp b/torch/csrc/cuda/Stream.cpp
+index c4468f0b..e7ea8bd5 100644
+--- a/torch/csrc/cuda/Stream.cpp
++++ b/torch/csrc/cuda/Stream.cpp
+@@ -94,6 +94,22 @@ static PyObject * THCPStream_synchronize(THCPStream *self, PyObject *noargs) {
+   END_HANDLE_TH_ERRORS
+ }
+ 
++static PyObject *THCPStream_set_cu_mask(THCPStream *self, PyObject *args) {
++  HANDLE_TH_ERRORS
++  unsigned long long new_mask_arg;
++  uint64_t new_mask = 0;
++  if (!PyArg_ParseTuple(args, "K", &new_mask_arg)) return NULL;
++  new_mask = new_mask_arg;
++  if ((new_mask & 0xffffffff) == 0) {
++    PyErr_SetString(PyExc_ValueError, "The CU mask must have at least one of "
++      "its bottom 32 bits set");
++    return NULL;
++  }
++  self->cuda_stream.set_cu_mask(new_mask);
++  Py_RETURN_NONE;
++  END_HANDLE_TH_ERRORS
++}
++
+ static PyObject * THCPStream_eq(THCPStream *self, THCPStream *other) {
+   HANDLE_TH_ERRORS
+   return PyBool_FromLong(self->cuda_stream == other->cuda_stream);
+@@ -121,6 +137,7 @@ static PyMethodDef THCPStream_methods[] = {
+   {(char*)"priority_range",
+     (PyCFunction)(void(*)(void))THCPStream_priority_range, METH_STATIC | METH_NOARGS, nullptr},
+   {(char*)"__eq__", (PyCFunction)THCPStream_eq, METH_O, nullptr},
++  {(char*)"set_cu_mask", (PyCFunction)THCPStream_set_cu_mask, METH_VARARGS, nullptr},
+   {nullptr}
+ };
+ 
+diff --git a/torch/cuda/streams.py b/torch/cuda/streams.py
+index 2706d8a5..c7e767dd 100644
+--- a/torch/cuda/streams.py
++++ b/torch/cuda/streams.py
+@@ -82,6 +82,10 @@ class Stream(torch._C._CudaStreamBase):
+         """
+         super(Stream, self).synchronize()
+ 
++    def set_cu_mask(self, mask):
++        """ Sets the compute unit mask for the stream. """
++        super(Stream, self).set_cu_mask(mask)
++
+     @property
+     def _as_parameter_(self):
+         return ctypes.c_void_p(self.cuda_stream)
