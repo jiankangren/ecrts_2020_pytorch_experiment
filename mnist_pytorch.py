@@ -268,7 +268,7 @@ def main():
         print("Can't use CUDA without CUDA being available. Pass --no-cuda.")
         os.exit(1)
     torch.manual_seed(args.seed)
-    device = torch.device("cuda:1" if not args.no_cuda else "cpu")
+    device = torch.device("cuda:0" if not args.no_cuda else "cpu")
     if not args.no_cuda:
         print("Running on device: " + torch.cuda.get_device_name(device))
     stream = None

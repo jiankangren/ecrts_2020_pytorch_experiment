@@ -28,8 +28,9 @@ Run the script with the `--help` command-line option for more information, or
 Installing and Modifying PyTorch
 --------------------------------
 
-Follow these instructions, after installing all of the needed ROCm
-prerequisites, to set up PyTorch on a system with an AMD GPU.
+Follow these instructions, after installing all of the needed [ROCm
+modifications](https://github.com/yalue/rocm_mega_repo), to set up PyTorch on a
+system with an AMD GPU.
 
 The modified version of PyTorch can be set up as follows (this assumes you're
 using a `conda` environment, as recommended by the official PyTorch
@@ -54,8 +55,8 @@ instructions):
     git apply path/to/this/repo/enable_pytorch_cu_mask.patch
     ```
 
- 5. (This may not be necessary, but I had to do it to get PyTorch to compile on
-    my system.) Fix some code that doesn't want to compile on AMD GPUs:
+ 5. (This may not be necessary, and appears to have been fixed in recent
+    versions of PyTorch.) Fix some code that doesn't compile on AMD GPUs:
       1. Open `caffe2/operators/hip/relu_op.hip`
       2. Find the line `__floats2half2_rn(xx.x > 0.0f ? xx.x : 0.0f, xx.y > 0.0f ? xx.y : 0.0f);`
       3. Add a `(float)` cast before every `xx.x` and `xx.y` in that line.

@@ -145,6 +145,7 @@ if __name__ == "__main__":
     result_dir = "./results/"
     datasets = {
         "Titan V": "pytorch_times_gpu_titan_v.json",
+        "Radeon VII": "pytorch_times_gpu_radeon_vii.json",
         "GTX 1060": "pytorch_times_gtx_1060.json",
         "GTX 970": "pytorch_times_gtx_970.json",
         "RX 570 (32 CUs, isolated)": "pytorch_times_gpu.json",
@@ -175,6 +176,7 @@ if __name__ == "__main__":
             ["With Competitor, Partitioned to 16 CUs", "RX 570 (partitioned to 16 CUs apart from competitor)"],
         ],
         [
+            ["Radeon VII", "Radeon VII"],
             ["Titan V", "Titan V"],
             ["GTX 1060", "GTX 1060"],
             ["GTX 970", "GTX 970"],
