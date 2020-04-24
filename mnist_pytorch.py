@@ -1,9 +1,16 @@
-# This script was copied mnist/main.py in https://github.com/pytorch/examples.
-# It was modified to record timing information to a separate file, and to use
-# a different file to hold downloaded data.
+# This script was originally based on mnist/main.py in
+# https://github.com/pytorch/examples. It was modified in several ways, to the
+# point where it's barely recognizable now. The main changes are the following:
 #
-# Additionally, it uses cuda:1 rather than cuda:0 (if GPU use is enabled)
-# because my system has two GPUs and GPU 0 has a display hooked up.
+# - No longer does training, but only does classification.
+# - Buffers all input data into GPU memory ahead of time, and attempts to avoid
+#   memory transfers to or from the GPU throughout execution.
+# - Supports running a competitor thread--basically a second GPU classifier
+#   running a larger network on random data.
+# - Records times to an output file for later processing.
+#
+# Run it with --help to see all of the options.
+
 from __future__ import print_function
 import argparse
 import json
